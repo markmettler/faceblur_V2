@@ -2,6 +2,62 @@ import { FilesetResolver, FaceDetector, Detection } from '@mediapipe/tasks-visio
 
 let faceDetector: FaceDetector | null = null;
 
+// Snelle box blur implementatie - veel efficiënter dan CSS blur op mobiel
+function applyFastBlur(imageData: ImageData, radius: number): ImageData {
+  const { data, width, height } = imageData;
+  const output = new ImageData(width, height);
+  const outData = output.data;
+
+  // Horizontale pass
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let r = 0, g = 0, b = 0, a = 0, count = 0;
+
+      for (let kx = -radius; kx <= radius; kx++) {
+        const px = Math.min(width - 1, Math.max(0, x + kx));
+        const idx = (y * width + px) * 4;
+        r += data[idx];
+        g += data[idx + 1];
+        b += data[idx + 2];
+        a += data[idx + 3];
+        count++;
+      }
+
+      const idx = (y * width + x) * 4;
+      outData[idx] = r / count;
+      outData[idx + 1] = g / count;
+      outData[idx + 2] = b / count;
+      outData[idx + 3] = a / count;
+    }
+  }
+
+  // Verticale pass (op output van horizontale pass)
+  const temp = new Uint8ClampedArray(outData);
+  for (let x = 0; x < width; x++) {
+    for (let y = 0; y < height; y++) {
+      let r = 0, g = 0, b = 0, a = 0, count = 0;
+
+      for (let ky = -radius; ky <= radius; ky++) {
+        const py = Math.min(height - 1, Math.max(0, y + ky));
+        const idx = (py * width + x) * 4;
+        r += temp[idx];
+        g += temp[idx + 1];
+        b += temp[idx + 2];
+        a += temp[idx + 3];
+        count++;
+      }
+
+      const idx = (y * width + x) * 4;
+      outData[idx] = r / count;
+      outData[idx + 1] = g / count;
+      outData[idx + 2] = b / count;
+      outData[idx + 3] = a / count;
+    }
+  }
+
+  return output;
+}
+
 export interface TrackedFace {
   id: number;
   thumbnail: string;
@@ -304,10 +360,10 @@ export async function applyBlurToVideo(
         const width = Math.min(canvas.width - x, box.width + padding * 2);
         const height = Math.min(canvas.height - y, box.height + padding * 2);
 
-        ctx.save();
-        ctx.filter = 'blur(30px)';
-        ctx.drawImage(canvas, x, y, width, height, x, y, width, height);
-        ctx.restore();
+        // Multi-pass blur: veel sneller op mobiel dan 1x blur(30px)
+        const imageData = ctx.getImageData(x, y, width, height);
+        const blurred = applyFastBlur(imageData, 15); // 15px blur, 2x toegepast = ~30px effect
+        ctx.putImageData(blurred, x, y);
       }
     });
 
