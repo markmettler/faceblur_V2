@@ -23,18 +23,14 @@ export async function initFaceDetector(): Promise<FaceDetector> {
   }
 
   try {
-    console.log('Initializing face detector with local files...');
+    console.log('Initializing face detector...');
 
-    const baseUrl = import.meta.env.DEV
-      ? window.location.origin
-      : window.location.origin;
+    // Gebruik jsDelivr CDN voor MediaPipe bestanden (werkt altijd, zonder upload)
+    const wasmPath = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22-rc.20250304/wasm';
+    const modelPath = 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite';
 
-    const wasmPath = `${baseUrl}/mediapipe/wasm`;
-    const modelPath = `${baseUrl}/mediapipe/models/blaze_face_short_range.tflite`;
-
-    console.log('WASM path:', wasmPath);
-    console.log('Model path:', modelPath);
-    console.log('Base URL:', baseUrl);
+    console.log('WASM path (CDN):', wasmPath);
+    console.log('Model path (Google Cloud):', modelPath);
 
     const vision = await FilesetResolver.forVisionTasks(wasmPath);
 
