@@ -25,16 +25,20 @@ export async function initFaceDetector(): Promise<FaceDetector> {
   try {
     console.log('Initializing face detector with local files...');
 
-    const vision = await FilesetResolver.forVisionTasks(
-      '/mediapipe/wasm'
-    );
+    const wasmPath = window.location.origin + '/mediapipe/wasm';
+    const modelPath = window.location.origin + '/mediapipe/models/blaze_face_short_range.tflite';
+
+    console.log('WASM path:', wasmPath);
+    console.log('Model path:', modelPath);
+
+    const vision = await FilesetResolver.forVisionTasks(wasmPath);
 
     console.log('Vision fileset loaded, creating detector...');
 
     faceDetector = await FaceDetector.createFromOptions(vision, {
       baseOptions: {
-        modelAssetPath: '/mediapipe/models/blaze_face_short_range.tflite',
-        delegate: 'GPU'
+        modelAssetPath: modelPath,
+        delegate: 'CPU'
       },
       runningMode: 'VIDEO',
       minDetectionConfidence: 0.5
