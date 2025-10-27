@@ -189,10 +189,6 @@ export async function analyzeVideoForFaces(
   return trackedFaces.filter(face => face.detections.length >= 5);
 }
 
-function isMobile(): boolean {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-}
-
 export async function applyBlurToVideo(
   videoBlob: Blob,
   trackedFaces: TrackedFace[],
@@ -214,20 +210,15 @@ export async function applyBlurToVideo(
   video.pause();
   video.currentTime = 0;
 
-  const mobile = isMobile();
-  const fps = mobile ? 15 : 30;
-  const blurAmount = mobile ? 15 : 30;
-  const scaleDown = mobile ? 0.75 : 1.0;
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+
+  const fps = 30;
   const duration = video.duration;
   const totalFrames = Math.ceil(duration * fps);
   const frameTime = 1 / fps;
-
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.floor(video.videoWidth * scaleDown);
-  canvas.height = Math.floor(video.videoHeight * scaleDown);
-  const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: false, desynchronized: true })!;
-
-  console.log(`Video verwerken: ${mobile ? 'mobiel' : 'desktop'} modus, ${fps} FPS, blur: ${blurAmount}px, resolutie: ${canvas.width}x${canvas.height}`);
 
   const stream = canvas.captureStream(fps);
 
@@ -269,26 +260,12 @@ export async function applyBlurToVideo(
   await video.play();
 
   let processedFrames = 0;
-  let lastFrameTime = performance.now();
-  let targetFrameDelay = 1000 / fps;
-
   const renderFrame = () => {
     if (video.ended || video.paused) {
       mediaRecorder.stop();
       URL.revokeObjectURL(video.src);
-      console.log(`Video verwerkt: ${processedFrames} frames`);
       return;
     }
-
-    const now = performance.now();
-    const elapsed = now - lastFrameTime;
-
-    if (elapsed < targetFrameDelay) {
-      requestAnimationFrame(renderFrame);
-      return;
-    }
-
-    lastFrameTime = now;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -321,21 +298,21 @@ export async function applyBlurToVideo(
       }
 
       if (box) {
-        const padding = mobile ? 25 : 40;
-        const x = Math.max(0, (box.originX - padding) * scaleDown);
-        const y = Math.max(0, (box.originY - padding) * scaleDown);
-        const width = Math.min(canvas.width - x, (box.width + padding * 2) * scaleDown);
-        const height = Math.min(canvas.height - y, (box.height + padding * 2) * scaleDown);
+        const padding = 40;
+        const x = Math.max(0, box.originX - padding);
+        const y = Math.max(0, box.originY - padding);
+        const width = Math.min(canvas.width - x, box.width + padding * 2);
+        const height = Math.min(canvas.height - y, box.height + padding * 2);
 
         ctx.save();
-        ctx.filter = `blur(${blurAmount}px)`;
+        ctx.filter = 'blur(30px)';
         ctx.drawImage(canvas, x, y, width, height, x, y, width, height);
         ctx.restore();
       }
     });
 
     processedFrames++;
-    if (onProgress && processedFrames % 5 === 0) {
+    if (onProgress && processedFrames % 10 === 0) {
       const progress = Math.min(95, (video.currentTime / duration) * 100);
       onProgress(progress);
     }
