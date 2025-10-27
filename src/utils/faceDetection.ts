@@ -25,11 +25,16 @@ export async function initFaceDetector(): Promise<FaceDetector> {
   try {
     console.log('Initializing face detector with local files...');
 
-    const wasmPath = window.location.origin + '/mediapipe/wasm';
-    const modelPath = window.location.origin + '/mediapipe/models/blaze_face_short_range.tflite';
+    const baseUrl = import.meta.env.DEV
+      ? window.location.origin
+      : window.location.origin;
+
+    const wasmPath = `${baseUrl}/mediapipe/wasm`;
+    const modelPath = `${baseUrl}/mediapipe/models/blaze_face_short_range.tflite`;
 
     console.log('WASM path:', wasmPath);
     console.log('Model path:', modelPath);
+    console.log('Base URL:', baseUrl);
 
     const vision = await FilesetResolver.forVisionTasks(wasmPath);
 
@@ -48,6 +53,11 @@ export async function initFaceDetector(): Promise<FaceDetector> {
     return faceDetector;
   } catch (err) {
     console.error('Face detector init error:', err);
+    console.error('Error details:', {
+      name: err instanceof Error ? err.name : 'Unknown',
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined
+    });
     if (err instanceof Error) {
       throw new Error('Fout bij initialiseren gezichtsdetectie: ' + err.message);
     }
